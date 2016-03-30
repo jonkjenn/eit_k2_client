@@ -49,6 +49,7 @@ WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH 
 #include "sensor_msgs/image_encodings.h"
 #include <json/json.h>
 #include <camera_info_manager/camera_info_manager.h>
+#include <vector>
 
 class Socket
 {
@@ -58,8 +59,10 @@ public:
 	struct addrinfo hints, *response, *iterator;//hint specifies what options to look for
 												//response is a linked list that getaddrinfo fills for us
 												//iterator is later on used to go through each of the response
+	int msgSize;
+	std::vector<char> msgSizeBuffer;
 	int mSocket;
-	int mBufferSize;
+	int32_t mBufferSize;
 	char *mBuffer;
 	Socket(const char address[], const char portNum[], int bufferSize);
 	void readData();
@@ -70,6 +73,7 @@ private:
 
 Socket::Socket(const char address[], const char portNum[], int bufferSize)
 {
+	msgSizeBuffer.resize(4);
 	memset(&(this->hints), 0, sizeof (this->hints));
 	this->hints.ai_family = AF_INET;
 	this->hints.ai_socktype = SOCK_STREAM;
@@ -94,7 +98,14 @@ Socket::Socket(const char address[], const char portNum[], int bufferSize)
 
 void Socket::readData()
 {
-	memset(this->mBuffer,0,this->mBufferSize);
+	recv(this->mSocket,&this->msgSizeBuffer[0],4,MSG_WAITALL);
+	//ROS_ERROR_STREAM("Buffer " << +(uint8_t)this->msgSizeBuffer[0] << " " << +(uint8_t)this->msgSizeBuffer[1] << " " << +(uint8_t)this->msgSizeBuffer[2] << " " << +(uint8_t)this->msgSizeBuffer[3] << std::endl);
+	
+	this->mBufferSize = ((uint8_t)this->msgSizeBuffer[3] << 24) | ((uint8_t)this->msgSizeBuffer[2] << 16) | ((uint8_t)this->msgSizeBuffer[1] << 8) | (uint8_t)this->msgSizeBuffer[0];
+	//ROS_ERROR_STREAM("msgSize: " << this->mBufferSize);
+	//deletethis->mBuffersizeBuffer;
+	//this->mBuffer = new char[this->mBufferSize];
+	//memset(this->mBuffer,0,this->mBufferSize);
 	recv(this->mSocket,this->mBuffer,this->mBufferSize,MSG_WAITALL);
 }
 
